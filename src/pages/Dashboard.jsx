@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useData } from '@/contexts/DataContext'
 import { formatBRL } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { EmptyState } from '@/components/EmptyState'
 import { ImportDialog } from '@/components/ImportDialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -26,10 +27,27 @@ import {
 import { format, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
-const COLORS = ['#6366f1', '#22c55e', '#ef4444', '#eab308', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316']
+const COLORS = ['#6366f1', '#22c55e', '#ef4444', '#eab308', '#06b6d4', '#ec4899', '#f97316']
+
+const CustomTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="bg-card/95 backdrop-blur border border-border rounded-xl p-3 shadow-2xl">
+      <p className="text-muted-foreground text-xs mb-2 capitalize font-medium">{label}</p>
+      {payload.map((p, i) => (
+        <div key={i} className="flex items-center gap-2 text-sm">
+          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+          <span className="text-muted-foreground">{p.name}:</span>
+          <span className="font-semibold" style={{ color: p.color }}>{formatBRL(p.value)}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export default function Dashboard() {
   const { transacoes, ativos, orcamentos, loading } = useData()
+  const [importOpen, setImportOpen] = useState(false)
 
   const data = useMemo(() => {
     if (loading) return null
@@ -73,7 +91,10 @@ export default function Dashboard() {
     monthT.filter(t => t.tipo === 'despesa').forEach(t => {
       catGastos[t.categoria] = (catGastos[t.categoria] || 0) + Number(t.valor)
     })
-    const topCategorias = Object.entries(catGastos).map(([cat, val]) => ({ categoria: cat, valor: val })).sort((a, b) => b.valor - a.valor).slice(0, 6)
+    const topCategorias = Object.entries(catGastos)
+      .map(([categoria, valor]) => ({ categoria, valor }))
+      .sort((a, b) => b.valor - a.valor)
+      .slice(0, 6)
 
     const alerts = []
     if (taxaPoupanca < 20) alerts.push({ type: 'warning', title: 'Taxa de poupança abaixo do ideal', desc: `Sua taxa está em ${taxaPoupanca.toFixed(1)}%. O recomendado é acima de 20%.` })
@@ -90,12 +111,13 @@ export default function Dashboard() {
     }
   }, [transacoes, ativos, orcamentos, loading])
 
-  const [importOpen, setImportOpen] = useState(false)
   const hasData = transacoes.length > 0
 
   if (loading || !data) return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{[1,2,3,4].map(i => <SkeletonCard key={i} />)}</div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map(i => <SkeletonCard key={i} />)}
+      </div>
       <SkeletonChart />
     </div>
   )
@@ -112,100 +134,192 @@ export default function Dashboard() {
   )
 
   const kpis = [
-    { label: 'Patrimônio Líquido', value: data.patrimonioLiquido, icon: WalletMoney, color: 'text-indigo-400', bg: 'bg-indigo-500/10' },
-    { label: 'Saldo Disponível', value: data.saldoDisponivel, icon: StatusUp, color: data.saldoDisponivel >= 0 ? 'text-green-400' : 'text-red-400', bg: data.saldoDisponivel >= 0 ? 'bg-green-500/10' : 'bg-red-500/10' },
-    { label: 'Receita do Mês', value: data.receitaMes, icon: MoneyRecive, color: 'text-green-400', bg: 'bg-green-500/10', variation: data.receitaVar },
-    { label: 'Despesas do Mês', value: data.despesaMes, icon: MoneySend, color: 'text-red-400', bg: 'bg-red-500/10', variation: data.despesaVar },
+    {
+      label: 'Patrimônio Líquido',
+      value: data.patrimonioLiquido,
+      icon: WalletMoney,
+      color: 'text-indigo-400',
+      bg: 'bg-indigo-500/10',
+      border: 'border-indigo-500/20',
+      glow: 'shadow-indigo-500/10',
+    },
+    {
+      label: 'Saldo Disponível',
+      value: data.saldoDisponivel,
+      icon: StatusUp,
+      color: data.saldoDisponivel >= 0 ? 'text-emerald-400' : 'text-red-400',
+      bg: data.saldoDisponivel >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10',
+      border: data.saldoDisponivel >= 0 ? 'border-emerald-500/20' : 'border-red-500/20',
+      glow: data.saldoDisponivel >= 0 ? 'shadow-emerald-500/10' : 'shadow-red-500/10',
+    },
+    {
+      label: 'Receita do Mês',
+      value: data.receitaMes,
+      icon: MoneyRecive,
+      color: 'text-emerald-400',
+      bg: 'bg-emerald-500/10',
+      border: 'border-emerald-500/20',
+      glow: 'shadow-emerald-500/10',
+      variation: data.receitaVar,
+      variationPositiveIsGood: true,
+    },
+    {
+      label: 'Despesas do Mês',
+      value: data.despesaMes,
+      icon: MoneySend,
+      color: 'text-red-400',
+      bg: 'bg-red-500/10',
+      border: 'border-red-500/20',
+      glow: 'shadow-red-500/10',
+      variation: data.despesaVar,
+      variationPositiveIsGood: false,
+    },
   ]
 
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (!active || !payload) return null
-    return (
-      <div className="bg-accent border border-zinc-700 rounded-lg p-3 shadow-xl">
-        <p className="text-muted-foreground text-xs mb-2 capitalize">{label}</p>
-        {payload.map((p, i) => (
-          <p key={i} className="text-sm" style={{ color: p.color }}>{p.name}: {formatBRL(p.value)}</p>
-        ))}
-      </div>
-    )
-  }
+  const healthColor = data.healthScore >= 75 ? 'text-emerald-400' : data.healthScore >= 50 ? 'text-amber-400' : 'text-red-400'
+  const healthBg = data.healthScore >= 75 ? 'bg-emerald-500' : data.healthScore >= 50 ? 'bg-amber-500' : 'bg-red-500'
 
   return (
     <div className="space-y-6">
+      {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {kpis.map((kpi, i) => (
-          <Card key={i} className="bg-card border-border hover:border-border transition-colors">
-            <CardContent className="p-4 lg:p-6">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-muted-foreground font-medium">{kpi.label}</span>
-                <div className={`w-8 h-8 rounded-lg ${kpi.bg} flex items-center justify-center`}>
-                  <kpi.icon size={18} className={kpi.color} variant="Bold" />
-                </div>
-              </div>
-              <p className="text-xl lg:text-2xl font-bold text-foreground">{formatBRL(kpi.value)}</p>
-              {kpi.variation !== undefined && (
-                <div className={`flex items-center gap-1 mt-2 ${kpi.variation >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {kpi.variation >= 0 ? <TrendUp size={14} variant="Bold" /> : <TrendDown size={14} variant="Bold" />}
-                  <span className="text-xs font-medium">{Math.abs(kpi.variation).toFixed(1)}%</span>
-                  <span className="text-xs text-foreground0">vs mês anterior</span>
-                </div>
+        {kpis.map((kpi, i) => {
+          const isVarGood = kpi.variationPositiveIsGood
+            ? (kpi.variation ?? 0) >= 0
+            : (kpi.variation ?? 0) <= 0
+          return (
+            <Card
+              key={i}
+              className={cn(
+                'bg-card border transition-all duration-300 hover:shadow-lg group',
+                kpi.border,
+                kpi.glow,
+                'hover:shadow-xl'
               )}
-            </CardContent>
-          </Card>
-        ))}
+              style={{ animationDelay: `${i * 80}ms` }}
+            >
+              <CardContent className="p-4 lg:p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-xs text-muted-foreground font-medium tracking-wide uppercase">{kpi.label}</span>
+                  <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110', kpi.bg)}>
+                    <kpi.icon size={18} className={kpi.color} variant="Bold" />
+                  </div>
+                </div>
+                <p className="text-xl lg:text-2xl font-bold text-foreground tracking-tight">{formatBRL(kpi.value)}</p>
+                {kpi.variation !== undefined && (
+                  <div className={cn(
+                    'flex items-center gap-1.5 mt-2.5 text-xs font-medium',
+                    isVarGood ? 'text-emerald-400' : 'text-red-400'
+                  )}>
+                    {isVarGood
+                      ? <TrendUp size={13} variant="Bold" />
+                      : <TrendDown size={13} variant="Bold" />}
+                    <span>{Math.abs(kpi.variation).toFixed(1)}%</span>
+                    <span className="text-muted-foreground font-normal">vs mês anterior</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
 
-      <Card className="bg-card border-border">
-        <CardHeader className="pb-2"><CardTitle className="text-base text-foreground">Fluxo de Caixa Mensal</CardTitle></CardHeader>
+      {/* Cashflow Chart */}
+      <Card className="bg-card border-border hover:border-border/80 transition-colors">
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <CardTitle className="text-base text-foreground font-semibold">Fluxo de Caixa Mensal</CardTitle>
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />Receita</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" />Despesa</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block" />Líquido</span>
+          </div>
+        </CardHeader>
         <CardContent>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data.cashflowData}>
+              <AreaChart data={data.cashflowData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
                 <defs>
-                  <linearGradient id="gR" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/><stop offset="95%" stopColor="#22c55e" stopOpacity={0}/></linearGradient>
-                  <linearGradient id="gD" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/><stop offset="95%" stopColor="#ef4444" stopOpacity={0}/></linearGradient>
-                  <linearGradient id="gL" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/><stop offset="95%" stopColor="#6366f1" stopOpacity={0}/></linearGradient>
+                  <linearGradient id="gR" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="gD" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="gL" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                  </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                <XAxis dataKey="mes" stroke="#71717a" tick={{ fontSize: 12 }} />
-                <YAxis stroke="#71717a" tick={{ fontSize: 12 }} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.6} />
+                <XAxis dataKey="mes" stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                <YAxis stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} axisLine={false} tickLine={false} />
                 <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" dataKey="receita" name="Receita" stroke="#22c55e" fill="url(#gR)" strokeWidth={2} />
-                <Area type="monotone" dataKey="despesa" name="Despesa" stroke="#ef4444" fill="url(#gD)" strokeWidth={2} />
-                <Area type="monotone" dataKey="liquido" name="Líquido" stroke="#6366f1" fill="url(#gL)" strokeWidth={2} />
+                <Area type="monotone" dataKey="receita" name="Receita" stroke="#22c55e" fill="url(#gR)" strokeWidth={2.5} dot={false} activeDot={{ r: 4, fill: '#22c55e' }} />
+                <Area type="monotone" dataKey="despesa" name="Despesa" stroke="#ef4444" fill="url(#gD)" strokeWidth={2.5} dot={false} activeDot={{ r: 4, fill: '#ef4444' }} />
+                <Area type="monotone" dataKey="liquido" name="Líquido" stroke="#6366f1" fill="url(#gL)" strokeWidth={2.5} dot={false} activeDot={{ r: 4, fill: '#6366f1' }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </CardContent>
       </Card>
 
+      {/* Bottom Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Health Score */}
         <Card className="bg-card border-border">
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base text-foreground">Saúde Financeira</CardTitle>
-              <div className="flex items-center gap-2">
-                <ShieldTick size={20} className={data.healthScore >= 75 ? 'text-green-400' : data.healthScore >= 50 ? 'text-yellow-400' : 'text-red-400'} variant="Bold" />
-                <span className={`text-2xl font-bold ${data.healthScore >= 75 ? 'text-green-400' : data.healthScore >= 50 ? 'text-yellow-400' : 'text-red-400'}`}>{data.healthScore}</span>
+              <div>
+                <CardTitle className="text-base text-foreground font-semibold">Saúde Financeira</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">Score baseado em 4 indicadores</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <p className={cn('text-3xl font-bold tabular-nums', healthColor)}>{data.healthScore}</p>
+                  <p className="text-xs text-muted-foreground">/100</p>
+                </div>
+                <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center', data.healthScore >= 75 ? 'bg-emerald-500/10' : data.healthScore >= 50 ? 'bg-amber-500/10' : 'bg-red-500/10')}>
+                  <ShieldTick size={22} className={healthColor} variant="Bold" />
+                </div>
+              </div>
+            </div>
+            {/* Score bar */}
+            <div className="mt-3">
+              <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
+                <div
+                  className={cn('h-full rounded-full transition-all duration-700', healthBg)}
+                  style={{ width: `${data.healthScore}%` }}
+                />
               </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {[
-              { label: 'Taxa de Poupança', value: data.taxaPoupanca, target: 20, suffix: '%' },
-              { label: 'Índice de Liquidez', value: data.indiceLiquidez * 100, target: 100 },
-              { label: 'Comprometimento de Renda', value: data.comprometimentoRenda, target: 70, suffix: '%', invert: true },
-              { label: 'Reserva de Emergência', value: data.reservaEmergencia, target: 6, suffix: ' meses', raw: true },
+              { label: 'Taxa de Poupança', value: data.taxaPoupanca, target: 20, suffix: '%', raw: false, invert: false },
+              { label: 'Índice de Liquidez', value: data.indiceLiquidez * 100, target: 100, suffix: '', raw: false, invert: false },
+              { label: 'Comprometimento de Renda', value: data.comprometimentoRenda, target: 70, suffix: '%', raw: false, invert: true },
+              { label: 'Reserva de Emergência', value: data.reservaEmergencia, target: 6, suffix: ' meses', raw: true, invert: false },
             ].map((item, i) => {
-              const pct = item.raw ? Math.min((item.value / item.target) * 100, 100) : Math.min(item.value, 100)
+              const pct = item.raw
+                ? Math.min((item.value / item.target) * 100, 100)
+                : Math.min(item.value, 100)
               const isGood = item.invert ? item.value <= item.target : item.value >= item.target
+              const displayVal = item.raw ? item.value.toFixed(1) : item.value.toFixed(1)
               return (
-                <div key={i}>
-                  <div className="flex justify-between text-sm mb-1">
+                <div key={i} className="space-y-1.5">
+                  <div className="flex justify-between items-center text-sm">
                     <span className="text-muted-foreground">{item.label}</span>
-                    <span className={isGood ? 'text-green-400' : 'text-yellow-400'}>{item.raw ? item.value.toFixed(1) : item.value.toFixed(1)}{item.suffix || ''}</span>
+                    <span className={cn('font-semibold tabular-nums', isGood ? 'text-emerald-400' : 'text-amber-400')}>
+                      {displayVal}{item.suffix}
+                    </span>
                   </div>
-                  <Progress value={pct} indicatorClassName={isGood ? 'bg-green-500' : 'bg-yellow-500'} />
+                  <Progress
+                    value={pct}
+                    indicatorClassName={isGood ? 'bg-emerald-500' : 'bg-amber-500'}
+                    className="h-1.5"
+                  />
                 </div>
               )
             })}
@@ -213,46 +327,89 @@ export default function Dashboard() {
         </Card>
 
         <div className="space-y-6">
+          {/* Alerts */}
           <Card className="bg-card border-border">
-            <CardHeader className="pb-2"><CardTitle className="text-base text-foreground">Alertas CFO</CardTitle></CardHeader>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base text-foreground font-semibold">Alertas CFO</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-3">
-              {data.alerts.map((alert, i) => (
-                <div key={i} className={`flex items-start gap-3 p-3 rounded-lg ${
-                  alert.type === 'danger' ? 'bg-red-500/5 border border-red-500/20' :
-                  alert.type === 'warning' ? 'bg-yellow-500/5 border border-yellow-500/20' :
-                  'bg-green-500/5 border border-green-500/20'
-                }`}>
-                  {alert.type === 'danger' ? <Danger size={18} className="text-red-400 mt-0.5 flex-shrink-0" variant="Bold" /> :
-                   alert.type === 'warning' ? <InfoCircle size={18} className="text-yellow-400 mt-0.5 flex-shrink-0" variant="Bold" /> :
-                   <TickCircle size={18} className="text-green-400 mt-0.5 flex-shrink-0" variant="Bold" />}
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground">{alert.title}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{alert.desc}</p>
+              {data.alerts.map((alert, i) => {
+                const isDanger = alert.type === 'danger'
+                const isWarning = alert.type === 'warning'
+                const isSuccess = alert.type === 'success'
+                return (
+                  <div
+                    key={i}
+                    className={cn(
+                      'flex items-start gap-3 p-3.5 rounded-xl border-l-4 transition-colors',
+                      isDanger ? 'bg-red-500/5 border-l-red-500 border border-red-500/10' :
+                      isWarning ? 'bg-amber-500/5 border-l-amber-500 border border-amber-500/10' :
+                      'bg-emerald-500/5 border-l-emerald-500 border border-emerald-500/10'
+                    )}
+                  >
+                    <div className={cn('mt-0.5 flex-shrink-0', isDanger ? 'text-red-400' : isWarning ? 'text-amber-400' : 'text-emerald-400')}>
+                      {isDanger
+                        ? <Danger size={16} variant="Bold" />
+                        : isWarning
+                        ? <InfoCircle size={16} variant="Bold" />
+                        : <TickCircle size={16} variant="Bold" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground leading-snug">{alert.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{alert.desc}</p>
+                    </div>
+                    <Badge
+                      variant={isDanger ? 'danger' : isWarning ? 'warning' : 'success'}
+                      className="flex-shrink-0 text-xs"
+                    >
+                      {isDanger ? 'Alto' : isWarning ? 'Médio' : 'OK'}
+                    </Badge>
                   </div>
-                  <Badge variant={alert.type === 'danger' ? 'danger' : alert.type === 'warning' ? 'warning' : 'success'} className="ml-auto flex-shrink-0">
-                    {alert.type === 'danger' ? 'Alto' : alert.type === 'warning' ? 'Médio' : 'OK'}
-                  </Badge>
-                </div>
-              ))}
+                )
+              })}
             </CardContent>
           </Card>
 
+          {/* Top Categories */}
           <Card className="bg-card border-border">
-            <CardHeader className="pb-2"><CardTitle className="text-base text-foreground">Top Categorias de Gasto</CardTitle></CardHeader>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base text-foreground font-semibold">Top Categorias de Gasto</CardTitle>
+            </CardHeader>
             <CardContent>
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data.topCategorias} layout="vertical" margin={{ left: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" horizontal={false} />
-                    <XAxis type="number" stroke="#71717a" tick={{ fontSize: 11 }} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
-                    <YAxis type="category" dataKey="categoria" stroke="#71717a" tick={{ fontSize: 11 }} width={80} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="valor" name="Gasto" radius={[0, 4, 4, 0]} barSize={16}>
-                      {data.topCategorias.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              {data.topCategorias.length > 0 ? (
+                <div className="h-52">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={data.topCategorias} layout="vertical" margin={{ left: 8, right: 16, top: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} horizontal={false} />
+                      <XAxis
+                        type="number"
+                        stroke="hsl(var(--muted-foreground))"
+                        tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                        tickFormatter={v => `${(v / 1000).toFixed(0)}k`}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        type="category"
+                        dataKey="categoria"
+                        stroke="hsl(var(--muted-foreground))"
+                        tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                        width={86}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Bar dataKey="valor" name="Gasto" radius={[0, 6, 6, 0]} barSize={14}>
+                        {data.topCategorias.map((_, i) => (
+                          <Cell key={i} fill={COLORS[i % COLORS.length]} fillOpacity={0.9} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-8">Sem despesas no mês atual</p>
+              )}
             </CardContent>
           </Card>
         </div>

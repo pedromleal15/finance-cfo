@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
@@ -12,6 +12,15 @@ export function Layout() {
     return true // default dark
   })
 
+  // Apply the saved theme class on first mount
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const toggleDarkMode = () => {
     const next = !darkMode
     setDarkMode(next)
@@ -24,12 +33,18 @@ export function Layout() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex">
+    <div className="min-h-screen bg-background text-foreground flex overflow-hidden">
       {/* Desktop Sidebar */}
       <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
 
-      {/* Main Content */}
-      <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-[72px]' : 'lg:ml-[240px]'}`}>
+      {/* Main Content — shifts right to accommodate the fixed sidebar */}
+      <div
+        className={[
+          'flex-1 flex flex-col min-w-0',
+          'transition-[margin] duration-300 ease-in-out',
+          sidebarCollapsed ? 'lg:ml-[72px]' : 'lg:ml-[240px]',
+        ].join(' ')}
+      >
         <Header darkMode={darkMode} onToggleDarkMode={toggleDarkMode} />
         <main className="flex-1 p-4 lg:p-6 pb-24 lg:pb-6 overflow-auto">
           <Outlet />
